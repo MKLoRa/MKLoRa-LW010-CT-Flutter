@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:nordic_dfu/nordic_dfu.dart';
 
 class Lw010DfuException implements Exception {
@@ -41,11 +44,18 @@ class Lw010DfuService {
     }
 
     onStatus?.call('Waiting...');
+    debugPrint('[LW010 DFU] start address=$address file=$filePath');
 
     NordicDfu()
         .startDfu(
           address,
           filePath,
+          darwinParameters: Platform.isIOS
+              ? const DarwinParameters(
+                  forceScanningForNewAddressInLegacyDfu: true,
+                  alternativeAdvertisingNameEnabled: true,
+                )
+              : const DarwinParameters(),
           androidParameters: const AndroidParameters(
             keepBond: false,
             disableNotification: true,
@@ -73,6 +83,7 @@ class Lw010DfuService {
               finishError(Lw010DfuException('DfuAborted'));
             },
             onError: (_, __, ___, message) {
+              debugPrint('[LW010 DFU] error: $message');
               finishError(
                 Lw010DfuException(
                   message.isEmpty ? 'Opps!DFU Failed. Please try again!' : message,
@@ -84,8 +95,11 @@ class Lw010DfuService {
         )
         .then((_) => finishSuccess())
         .catchError((Object error) {
+      debugPrint('[LW010 DFU] startDfu failed: $error');
       if (error is Lw010DfuException) {
         finishError(error);
+      } else if (error is PlatformException) {
+        finishError(Lw010DfuException(error.message ?? 'Opps!DFU Failed. Please try again!'));
       } else {
         finishError(Lw010DfuException('Opps!DFU Failed. Please try again!'));
       }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +8,7 @@ import '../../../../ble/lw010_param_helpers.dart';
 import '../../../../ble/lw010_protocol_named_api.dart';
 import '../../../../dfu/lw010_dfu_coordinator.dart';
 import '../../../../dfu/lw010_dfu_service.dart';
+import '../../../../dfu/lw010_dfu_utils.dart';
 import '../../../../ui/theme/device_detail_theme.dart';
 import '../../../../ui/widgets/ble_loading_overlay.dart';
 import '../../../../ui/widgets/common_confirm_dialog.dart';
@@ -92,21 +92,26 @@ class _SystemInfoPageState extends State<SystemInfoPage> {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['zip'],
+      withData: true,
     );
     if (!mounted || picked == null) return;
 
-    final path = picked.files.single.path;
-    if (path == null) return;
-
-    final file = File(path);
-    if (!file.existsSync() || file.lengthSync() == 0 || !path.toLowerCase().endsWith('.zip')) {
+    late final String firmwarePath;
+    try {
+      firmwarePath = await lw010PrepareDfuFirmwarePath(picked.files.single);
+    } on Lw010DfuFileException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File error!')),
+          SnackBar(content: Text(error.message)),
         );
       }
       return;
     }
+
+    final dfuAddress = lw010DfuDeviceAddress(
+      deviceInfo: widget.session.deviceInfo,
+      chipMac: _mac,
+    );
 
     setState(() => _dfuRunning = true);
     DfuProgressHandle? progress;
@@ -116,8 +121,8 @@ class _SystemInfoPageState extends State<SystemInfoPage> {
 
       progress = await showDfuProgressDialog(context);
       await Lw010DfuService.start(
-        address: _mac,
-        filePath: path,
+        address: dfuAddress,
+        filePath: firmwarePath,
         onStatus: progress.update,
       );
 
@@ -142,11 +147,17 @@ class _SystemInfoPageState extends State<SystemInfoPage> {
         );
         Navigator.of(context).pop(SystemInfoDfuResult.failed);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         closeDfuProgressDialog(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Opps!DFU Failed. Please try again!')),
+          SnackBar(
+            content: Text(
+              error is Lw010DfuException
+                  ? error.message
+                  : 'Opps!DFU Failed. Please try again!',
+            ),
+          ),
         );
         Navigator.of(context).pop(SystemInfoDfuResult.failed);
       }
