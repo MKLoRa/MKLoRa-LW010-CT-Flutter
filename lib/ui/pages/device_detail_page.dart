@@ -58,8 +58,13 @@ class _DeviceDetailPageState extends State<DeviceDetailPage> {
 
   Future<void> _performInitialSync() async {
     if (!mounted) return;
-    await widget.session.protocol.syncTime();
+    final timeSynced = await widget.session.protocol.syncTime();
     if (!mounted) return;
+    if (timeSynced) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Time sync completed!')),
+      );
+    }
     await _loraTabKey.currentState?.load(showOverlay: false);
   }
 

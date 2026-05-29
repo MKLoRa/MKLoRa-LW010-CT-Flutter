@@ -8,7 +8,7 @@ import '../../../../../ble/lw010_option_lists.dart';
 import '../../../../../ble/lw010_param_helpers.dart';
 import '../../../../../ble/lw010_protocol_named_api.dart';
 import '../../../../../ui/widgets/ble_loading_overlay.dart';
-import '../../../../../ui/widgets/ble_password_dialog.dart';
+import '../../../../../ui/widgets/ble_change_password_dialog.dart';
 import '../../../../../ui/widgets/device_detail/settings_widgets.dart';
 import '../device_detail_utils.dart';
 
@@ -91,7 +91,7 @@ class _BleSettingsPageState extends State<BleSettingsPage> {
 
   Future<void> _changePassword() async {
     if (!_passwordVerify) return;
-    final password = await showBlePasswordDialog(context: context);
+    final password = await showBleChangePasswordDialog(context: context);
     if (password == null || !mounted) return;
     await runWithBleLoading(context, () async {
       final ok = await widget.session.protocol.writePassword(utf8.encode(password));

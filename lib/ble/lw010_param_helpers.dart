@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'lw010_param_key.dart';
 import 'lw010_protocol_api.dart';
 
 class Lw010ParamHelpers {
@@ -95,15 +96,12 @@ class Lw010ParamHelpers {
 }
 
 extension Lw010ProtocolApiBatch on Lw010ProtocolApi {
-  Future<void> syncTime() async {
+  /// Writes UTC epoch seconds (param 0x20), aligned with native `setTime()`.
+  Future<bool> syncTime() async {
     final now = DateTime.now().toUtc();
     final seconds = now.millisecondsSinceEpoch ~/ 1000;
     final bytes = ByteData(4);
     bytes.setInt32(0, seconds, Endian.big);
-    await client.writeParam(
-      cmd: 0x00,
-      subCmd: 0x20,
-      data: bytes.buffer.asUint8List(),
-    );
+    return writeParam(Lw010ParamKey.timeUtc, bytes.buffer.asUint8List());
   }
 }
